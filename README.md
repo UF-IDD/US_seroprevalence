@@ -10,8 +10,7 @@ to run the model, including the seroprevalence estimates, numbers of reported
 cases and deaths, excess deaths, numbers of hospitalisations and tests, and
 what assays were used.
 
--
-[blood_donors_surveys_processed.csv](data/blood_donors_surveys_processed.csv):
+- [blood_donors_surveys_processed.csv](data/blood_donors_surveys_processed.csv):
 The processed version of the blood donors seroprevalence surveys, necessary to
 make the comparisons against our estimates of proportions infected.
 
@@ -31,8 +30,7 @@ models being fit. This produces a large number of files, which in the analyses
 are assumed to be combined into a single file, which is here provided as
 [output/glm_3-wanings.rds](output/glm_3-wanings.rds).
 
--
-[03_get_overall_uncertainty.R](code/seroprevalence_get_overall_uncertainty.R):
+- [03_get_overall_uncertainty.R](code/seroprevalence_get_overall_uncertainty.R):
 Estimates uncertainty in our estimates of proportions infected to account for
 uncertainty in the selection of times to seroreversion for the three assays,
 and in the lead/lag times between a case being reported and seroconverting.
@@ -73,8 +71,7 @@ lead/lag time (uncertainty across GLMs). The output is produced by
 model, including RMSE and LOO median RMSE. The output is produced by
 [04_gam_main_reference_model.R](code/04_gam_main_reference_model.R).
 
--
-[proportions_infected_estimates.csv](output/proportions_infected_estimates.csv):
+- [proportions_infected_estimates.csv](output/proportions_infected_estimates.csv):
 Estimates of proportions infected, with uncertainty, from the best waning
 model.
 
