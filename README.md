@@ -20,17 +20,17 @@ make the comparisons against our estimates of proportions infected.
 - [functions.R](code/functions.R): Functions necessary to run the analyses, and
 model formulae.
 
-- [01_glm_main_reference_model.R](code/seroprevalence_glm_main_model.R): Runs
-the main reference model (single GLM model with no waning). This produces
-[output/main_glm.rds](output/main_glm.rds).
+- [01_glm_main_reference_model.R](code/01_glm_main_reference_model.R): Runs
+the main reference model (single logistic regression with no waning). This
+produces [output/main_glm.rds](output/main_glm.rds).
 
-- [02_glm_waning_models.R](code/seroprevalence_glm_3wanings.R): Runs the waning
+- [02_glm_waning_models.R](code/02_glm_waning_models.R): Runs the waning
 models. This script is intended to run on an HPC due to the large number of
 models being fit. This produces a large number of files, which in the analyses
 are assumed to be combined into a single file, which is here provided as
 [output/glm_3-wanings.rds](output/glm_3-wanings.rds).
 
-- [03_get_overall_uncertainty.R](code/seroprevalence_get_overall_uncertainty.R):
+- [03_get_overall_uncertainty.R](code/03_get_overall_uncertainty.R):
 Estimates uncertainty in our estimates of proportions infected to account for
 uncertainty in the selection of times to seroreversion for the three assays,
 and in the lead/lag times between a case being reported and seroconverting.
@@ -38,19 +38,20 @@ This produces a large number of files, which in the analyses are assumed to be
 combined into a single file, which is here provided as
 [output/cis_glm_3-wanings.rds](output/cis_glm_3-wanings.rds).
 
-- [04_gam_main_reference_model.R](code/seroprevalence_gam_main_model.R): Runs
-the main reference model (single GAM with no waning). This produces
-[output/main_gam.rds](output/main_gam.rds)
+- [04_glm_with_splines_main_reference_model.R](code/04_glm_with_splines_main_reference_model.R):
+Runs the main reference model using splines. This produces
+[output/main_glm_splines.rds](output/main_glm_splines.rds).
 
-- [05_figures.R](code/figures.R): Reproduces all figures in the manuscript
+- [05_figures.R](code/05_figures.R): Reproduces all figures in the manuscript
 (including supporting figures).
 
 
 
 ## Output
 
-- [main_glm.rds](output/main_glm.rds): GLM object of the main reference GLM
-model, including RMSE and LOO median RMSE. The output is produced by
+- [main_glm.rds](output/main_glm.rds): GLM object of the main reference
+logistic regression model, including RMSE and LOO median RMSE. The output is
+produced by
 [01_glm_main_reference_model.R](code/01_glm_main_reference_model.R).
 
 - [glm_3-wanings.rds](output/glm_3-wanings.rds): A table with summary metrics
@@ -62,16 +63,17 @@ LOO median RMSE for each combination. The output is produced by
 - [cis_glm_3-wanings.rds](output/cis_glm_3-wanings.rds): A table with the lower
 and upper uncertainty boundaries for both predicted seroprevalences from the
 models, and the estimated proportions infected. The uncertainty accounts for
-the 95% confidence interval of each individual waning GLM, and the uncertainty
-due to the selection of the times to seroreversion of the three assays and the
-lead/lag time (uncertainty across GLMs). The output is produced by
+the 95% confidence interval of each individual waning logistic regression, and
+the uncertainty due to the selection of the times to seroreversion of the three
+assays and the lead/lag time (uncertainty across logistic regressions). The
+output is produced by
 [03_get_overall_uncertainty.R](code/03_get_overall_uncertainty.R).
 
-- [main_gam.rds](output/main_gam.rds): GAM object of the main reference GAM
-model, including RMSE and LOO median RMSE. The output is produced by
-[04_gam_main_reference_model.R](code/04_gam_main_reference_model.R).
+- [main_glm_splines.rds](output/main_glm_splines.rds): GLM object of the main
+reference GLM model with splines. The output is produced by
+[04_glm_with_splines_main_reference_model.R](code/04_glm_with_splines_main_reference_model.R).
 
 - [proportions_infected_estimates.csv](output/proportions_infected_estimates.csv):
-Estimates of proportions infected, with uncertainty, from the best waning
-model.
+Estimates of proportions infected per state and point in time, with lower and
+upper limits of uncertainty, from the best waning model.
 

@@ -3,12 +3,13 @@
 # ~~~
 #
 # This script fits the waning models, which makes many different assumptions on
-# waning.
+# waning across three different assays.
 #
 # This code was intended to run on an HPC; it can take some time if run
 # seriously or in parallel on a personal computer.
 ###############################################################################
 
+library('survey')
 library('dplyr')
 library('data.table')
 
@@ -20,7 +21,7 @@ hpc = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
 # Load complete data. This includes time points for which seroprevalence
 # estimates are not available (this will be necessary to produce time series of
 # cases adjusted for waning).
-dat = fread('supporting_data.csv')
+dat = fread('../data/supporting_data.csv')
 dat = dat[, week := as.Date(week)]
 
 # Subset of the data with seroprevalence estimates.
@@ -31,6 +32,9 @@ dat_rounds = subset(dat, !is.na(seroprevalence))
 ###############################################################################
 # Use cumulative cases adjusted for waning instead. 
 ############################################################################### 
+# Set up all combinations of times to seroreversion across three assays and
+# lead/lag time, and subset to the combinations to be run on each CPU.
+
 detects = -1:2  # Lead/lag between a case being reported and seroconversion.
 
 max_date = max(dat_rounds$week)
@@ -73,15 +77,21 @@ for (i in seq_len(nrow(pars)))
                                 'ortho' = pars$waning_wks_ortho[i], 
                                 'roche' = pars$waning_wks_roche[i], 
                                 'lag' = pars$detects[i]))
-  s = s[, wghts := mean(n_total / state_population) * state_population / n_total]
+  s = s[, wghts := state_population / n_total]
 
-  m = glm(f_glm_3w, data = s, 
-          weights = wghts,
-          family = 'binomial')
+  sdesign = svydesign(id = ~ 1,
+                      weights = ~ wghts,
+                      data = s)
+  m = svyglm(f_glm_3w, 
+             design = sdesign,
+             na.action = na.exclude,
+             family = 'binomial')
 
-  pars$aic[i]  = AIC(m)
-  pars$rmse[i] = RMSE(dat = s$seroprevalence / 100, pred = predict(m, type = 'response'))
+  pars$aic[i]  = m$aic
+  pars$rmse[i] = RMSE(dat = s$seroprevalence / 100, 
+                      pred = predict(m, type = 'response'))
 
+  # Get median LOO RMSE.
   rs    = sort(unique(s$survey_round))
   rmses = rep(NA, length(rs))
 
@@ -90,9 +100,13 @@ for (i in seq_len(nrow(pars)))
     this_s = s[abs(s$survey_round - rs[j]) > 1e-2, ]
     this_r = s[abs(s$survey_round - rs[j]) < 1e-2, ]
 
-    this_m = glm(f_glm_3w, data = this_s, 
-                 weights = wghts,
-                 family = 'binomial')
+    this_sdesign = svydesign(id = ~ 1,
+                             weights = ~ wghts,
+                             data = this_s)
+    this_m = svyglm(f_glm_3w, 
+                    design = this_sdesign,
+                    na.action = na.exclude,
+                    family = 'binomial')
 
     p_r      = predict(this_m, newdata = this_r, type = 'response')
     rmses[j] = RMSE(dat = this_r$seroprevalence / 100, pred = p_r)

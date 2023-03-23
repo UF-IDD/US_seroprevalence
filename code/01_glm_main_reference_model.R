@@ -5,6 +5,7 @@
 # This script fits the main reference model, which assumes no waning in cases.
 ###############################################################################
 
+library('survey')
 library('dplyr')
 library('data.table')
 
@@ -19,12 +20,18 @@ dat = dat[, week := as.Date(week)]
 # Subset of the data with seroprevalence estimates.
 dat_rounds = subset(dat, !is.na(seroprevalence))
 
+# Weights are the inverse of the sampling proportion.
+dat_rounds = dat_rounds[, wghts := state_population / n_total]
 
 # Main model.
-# Weights account for difference sampling proportions across states.
-m = glm(f_glm, data = dat_rounds, 
-        weights = mean(n_total / state_population) * state_population / n_total,
-        family = 'binomial')
+sdesign = svydesign(id = ~ 1,
+                    weights = ~ wghts,
+                    data = dat_rounds)
+m = svyglm(f_glm, 
+           design = sdesign,
+           na.action = na.exclude,
+           family = 'binomial')
+
 
 # Get LOO RMSE values - leaving one round out at a time.
 rs    = sort(unique(dat_rounds$survey_round))
@@ -37,9 +44,13 @@ for (j in seq_along(rs))
   this_r = dat_rounds[abs(dat_rounds$survey_round - rs[j]) < 1e-2, ]
 
   # Fit model to data excluding current round j.
-  this_m = glm(f_glm, data = this_s, 
-               weights = mean(n_total / state_population) * state_population / n_total,
-               family = 'binomial')
+  this_sdesign = svydesign(id = ~ 1,
+                           weights = ~ wghts,
+                           data = this_s)
+  this_m = svyglm(f_glm, 
+                  design = this_sdesign,
+                  na.action = na.exclude,
+                  family = 'binomial')
 
   if (abs(length(this_m$residuals) - nrow(this_s)) > 1e-2)
     stop('Error in seroprevalence_glm_3wanings.R : model dim not the same as data')

@@ -10,9 +10,10 @@
 # model fit (which in any case is far smaller).
 #
 # This code was intended to run on an HPC; it can take some time if run
-# seriously or in parallel on a personal computer.
+# serially or in parallel on a personal computer.
 ###############################################################################
 
+library('survey')
 library('data.table')
 
 
@@ -24,7 +25,7 @@ hpc = as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
 # Load complete data. This includes time points for which seroprevalence
 # estimates are not available (this will be necessary to produce time series of
 # cases adjusted for waning).
-states_w = fread('supporting_data.csv')
+states_w = fread('../data/supporting_data.csv')
 states_w = states_w[, week := as.Date(week)]
 
 # Models with cases adjusted for 3 different waning rates. 
@@ -47,23 +48,25 @@ bests = lapply(X = bests, FUN = function(x)
 n = length(bests)
 n = n / 324
 
+# Run only a subset on this CPU.
 r = (n * (hpc - 1) + 1):(hpc * n)
 bests = bests[r]
 
 # Get estimated proportion infected (and associated uncertainty envelopes) for
-# each of the models in the best 5 percentile by LOOV median RMSE (so for all
+# each of the models in the best 5 percentile by LOO median RMSE (so for all
 # the different assumed times to seroreversion and lead/lag times included in
 # that best 5 percentile). This yields a number of time series (with associated
-# envelopes) for each of those models. From these, for each point in time, get
-# the range across the predictions (including the uncertainty envelopes). Do
-# this for each state, and also get a US-wide estimate (which excludes each
-# model-specific uncertainty envelopes).
+# envelopes due to uncertainty in the predicted values) for each of those
+# models. From these, for each point in time, get the range across the
+# predictions (including the uncertainty envelopes). Do this for each state, and
+# also get a US-wide estimate (which excludes each model-specific uncertainty
+# envelopes).
 preds_out = GetPredictions(d = states_w, ex = bests[1], f = 'f_glm_3w', 
                            get_cis = FALSE)
 
 preds_out_us = preds_out[, .(state = 'US-wide', 
                              week = mean(week),
-                             state_population = NA,
+                             state_population = as.character(NA),
                              pred_seroprev_modlo = weighted.mean(pred_seroprev, 
                                                                  w = state_population),
                              pred_seroprev_modhi = weighted.mean(pred_seroprev, 

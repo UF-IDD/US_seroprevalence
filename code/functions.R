@@ -1,7 +1,7 @@
 ###############################################################################
 # Functions used throughout the scripts.
 # ~~~
-# 2021-08-05
+# 
 ###############################################################################
 
 
@@ -14,6 +14,11 @@
 
 RMSE = function(dat, pred)
 {
+  if (length(dat) != length(pred))
+  {
+    stop('Error in function RMSE : length of vectors not the same')
+  }
+
   return(sqrt(mean((dat - pred)^2, na.rm = TRUE)))
 }
 
@@ -192,6 +197,52 @@ GetWanedCasesSimple = function(x, detect, ab_dur)
 
 
 
+#' Pad survey:::predict.svyglm output with NAs.
+#'
+#' This is necessary if you want survey:::predict.svyglm to behave as if `na.act
+#' = na.exclude` had been passed. Currently, `na.act` is not passed on to
+#' the predict function, so the output needs to be manually padded with any NAs
+#' present in the dataset. This is an inelegant way round the problem, but
+#' leaves the original predict function as is.
+#'
+#' @param object :svyglm model object: the model to predict from.
+#' @param newdata :data.frame or data.table: the data used for predictions.
+#' @param type :character: predictions on link or response scale?
+#' @param se.fit :boolean: return standard errors too? If so, these will be
+#'        returned in a list, like predict.(g)lm.
+#'
+#' @return either a vector of length equal to the number of rows of newdata,
+#' padded with NAs if necessary, with the predicted values from the model
+#' object, or a list with the fit and standard errors, each vectors of length
+#' equal to the number of rows of newdata.
+
+PredictPaddedNAs = function(object, newdata = NULL, type = 'link', se.fit = FALSE)
+{
+  if (class(object)[1] != 'svyglm')
+  {
+    stop('Error in PredictPaddedNAs : object must be a svyglm model.')
+  }
+
+  cols    = all.vars(formula(object)[-2])
+  w_comp  = complete.cases(subset(newdata, , cols))
+  out_vec = rep(as.numeric(NA), length = nrow(newdata))
+
+  if (isFALSE(se.fit))
+  {
+    pred = predict(object, newdata = newdata, type = type)
+    out_vec[w_comp] = pred
+    return(out_vec)
+  } else
+  {
+    pred = predict(object, newdata = newdata, se.fit = se.fit, type = type)
+    out  = list(fit = out_vec, se.fit = out_vec)
+    out[['fit']][w_comp]    = as.numeric(pred)
+    out[['se.fit']][w_comp] = sqrt(attr(pred, 'var'))
+    return(out)
+  }
+}
+
+
 
 #' Get predicted seroprevalences and incidences (the latter assuming specific
 #' times to seroreversion for the three assays.
@@ -216,16 +267,20 @@ GetPredictions = function(d, ex, f, get_cis = TRUE)
   s_ex = merge(d, s_ex[, c('state', 'week', 'cases_perc_waning')], all.x = TRUE)
 
   s_ex_dat = subset(s_ex, !is.na(seroprevalence))
+  s_ex_dat = s_ex_dat[, wghts := state_population / n_total]
 
   # Fit GLM for both reference and waning model.
-  m_ex = glm(get(f), 
-             data = s_ex_dat, 
-             weights = mean(n_total / state_population) * state_population / n_total,
-             family = 'binomial')
-  m_ref = glm(get(gsub('_3w', '', f)), 
-              data = s_ex_dat, 
-              weights = mean(n_total / state_population) * state_population / n_total,
-              family = 'binomial')
+  sdesign = svydesign(id = ~ 1,
+                      weights = ~ wghts,
+                      data = s_ex_dat)
+  m_ex = svyglm(get(f), 
+                design = sdesign,
+                na.action = na.exclude,
+                family = 'binomial')
+  m_ref = svyglm(get(gsub('_3w', '', f)), 
+                 design = sdesign,
+                 na.action = na.exclude,
+                 family = 'binomial')
 
   if (isTRUE(get_cis))
   {
@@ -238,7 +293,7 @@ GetPredictions = function(d, ex, f, get_cis = TRUE)
   # confidence envelopes.
   link = family(m_ex)$linkinv
 
-  p_seroprev = predict(m_ex, se.fit = TRUE, newdata = s_ex)
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = TRUE, newdata = s_ex)
 
   # Get predicted seroprevalences, and the upper and lower confidence intervals
   # (from the specific model).
@@ -259,35 +314,37 @@ GetPredictions = function(d, ex, f, get_cis = TRUE)
                      Ortho_VITROS_perc = 0,
                      Roche_Elecsys_perc = 0)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_abbott = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex) 
+  s_ex = s_ex[, `:=`(pred_seroprev_abbott = link(p_seroprev))]
 
   s_ex = s_ex[, `:=`(Abbott_Architect_perc = 0,
                      Ortho_VITROS_perc = 100,
                      Roche_Elecsys_perc = 0)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_ortho = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex) 
+  s_ex = s_ex[, `:=`(pred_seroprev_ortho = link(p_seroprev))]
 
   s_ex = s_ex[, `:=`(Abbott_Architect_perc = 0,
                      Ortho_VITROS_perc = 0,
                      Roche_Elecsys_perc = 100)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_roche = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex) 
+  s_ex = s_ex[, `:=`(pred_seroprev_roche = link(p_seroprev))]
 
 
   # Get predicted incidences, by using the model fit above to predict, but using
   # the real cumulative number of reported cases in place of the waned cases.
   s_ex = s_ex[, cases_perc_waning := cases_cumulative_perc]
 
-  p_incidence = predict(m_ex, newdata = s_ex, se.fit = TRUE)
+  p_incidence = PredictPaddedNAs(m_ex, se.fit = TRUE, newdata = s_ex)
 
   # Get estimated proportions infected, and the upper and lower confidence
   # intervals (from the specific model).
   s_ex = s_ex[, `:=`(pred_incidence = link(p_incidence$fit),
-                     pred_incidence_modlo = link(p_incidence$fit - (2 * p_incidence$se.fit)),
-                     pred_incidence_modhi = link(p_incidence$fit + (2 * p_incidence$se.fit)))]
+                     pred_incidence_modlo = link(p_incidence$fit - 
+                                                 (2 * p_incidence$se.fit)),
+                     pred_incidence_modhi = link(p_incidence$fit + 
+                                                 (2 * p_incidence$se.fit)))]
 
 
   #' Estimated EPIV, assuming no correlation between vaccination and incidence.
@@ -356,11 +413,15 @@ GetPredsPerAssay = function(d, ex, f)
 {
   d = copy(d)
   s_ex = GetAdjustedCases(dat = d, durs = ex)
+  s_ex = s_ex[, wghts := state_population / n_total]
 
-  m_ex = glm(get(f), 
-             data = s_ex, 
-             weights = mean(n_total / state_population) * state_population / n_total,
-             family = 'binomial')
+  sdesign = svydesign(id = ~ 1,
+                      weights = ~ wghts,
+                      data = s_ex)
+  m_ex = svyglm(get(f), 
+                design = sdesign,
+                na.action = na.exclude,
+                family = 'binomial')
 
   link = family(m_ex)$linkinv
 
@@ -368,22 +429,22 @@ GetPredsPerAssay = function(d, ex, f)
                      Ortho_VITROS_perc = 0,
                      Roche_Elecsys_perc = 100)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_roche = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex) 
+  s_ex = s_ex[, `:=`(pred_seroprev_roche = link(p_seroprev))]
 
   s_ex = s_ex[, `:=`(Abbott_Architect_perc = 0,
                      Ortho_VITROS_perc = 100,
                      Roche_Elecsys_perc = 0)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_ortho = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex)
+  s_ex = s_ex[, `:=`(pred_seroprev_ortho = link(p_seroprev))]
 
   s_ex = s_ex[, `:=`(Abbott_Architect_perc = 100,
                      Ortho_VITROS_perc = 0,
                      Roche_Elecsys_perc = 0)]
 
-  p_seroprev = predict(m_ex, newdata = s_ex, se.fit = TRUE)
-  s_ex = s_ex[, `:=`(pred_seroprev_abbott = link(p_seroprev$fit))]
+  p_seroprev = PredictPaddedNAs(m_ex, se.fit = FALSE, newdata = s_ex)
+  s_ex = s_ex[, `:=`(pred_seroprev_abbott = link(p_seroprev))]
 
   # Get difference between the estimated seroprevalences, and predicted
   # seroprevalences when a single assay is used.
@@ -431,8 +492,11 @@ GetPredTS = function(dat)
 
   s_all = s_all[order(week), ]
 
-  s_all = pivot_longer(s_all, c('seroprev_us', 'pred_seroprev_abbott', 'pred_seroprev_ortho', 'pred_seroprev_roche'),
-                       values_to = 'values', names_to = 'assay')
+  s_all = pivot_longer(data = s_all, 
+                       cols = c('seroprev_us', 'pred_seroprev_abbott',
+                                'pred_seroprev_ortho', 'pred_seroprev_roche'),
+                       values_to = 'values', 
+                       names_to = 'assay')
   s_all$assay_lab = NA
   s_all$assay_lab[s_all$assay == 'seroprev_us']          = 'Surveys'
   s_all$assay_lab[s_all$assay == 'pred_seroprev_abbott'] = 'Abbott'
@@ -444,8 +508,6 @@ GetPredTS = function(dat)
 
   return(as.data.table(s_all))
 }
-
-
 
 
 
@@ -488,23 +550,23 @@ f_glm = as.formula(cbind(n_positive, n_negative) ~
                    cases_50_69_perc)
 
 # Waning models (only difference is that the cumulative reported cases from the
-# reference model is replaced with cumulative number of "waned" cases.
+# reference model is replaced with cumulative number of "waned" cases).
 f_glm_3w = ReplaceVarFormula(f = f_glm, 
                              variable = 'cases_cumulative_perc', 
                              replacement = 'cases_perc_waning')
 
-# Main reference GAM model.
-f_gam = as.formula(cbind(n_positive, n_negative) ~ 
-                   week_decimal * state +
-                   s(sqrt(cases_cumulative_perc), k = 5) +
-                   s(sqrt(deaths_cumulative_perc), k = 5) + 
-                   s(excess_deaths_difference_perc, k = 5) +
-                   s(sqrt(hospitalisation_cumulative_perc), k = 5) +
-                   s(log(tests_total_cumulative_perc), k = 5) +
-                   s(vaccinated_cumulative_perc, k = 5) +
-                   s(Abbott_Architect_perc, k = 5) +
-                   Roche_Elecsys_perc +
-                   s(cases_00_19_perc, k = 5) +
-                   s(cases_20_49_perc, k = 5) +
-                   s(cases_50_69_perc, k = 5))
+# Main reference GLM model with splines.
+f_spline = as.formula(cbind(n_positive, n_negative) ~ 
+                      week_decimal * state +
+                      ns(sqrt(cases_cumulative_perc), df = 5) +
+                      ns(sqrt(deaths_cumulative_perc), df = 5) + 
+                      ns(excess_deaths_difference_perc, df = 5) +
+                      ns(sqrt(hospitalisation_cumulative_perc), df = 5) +
+                      ns(log(tests_total_cumulative_perc), df = 5) +
+                      vaccinated_cumulative_perc +
+                      Abbott_Architect_perc +
+                      Roche_Elecsys_perc +
+                      ns(cases_00_19_perc, df = 5) +
+                      ns(cases_20_49_perc, df = 5) +
+                      ns(cases_50_69_perc, df = 5))
 

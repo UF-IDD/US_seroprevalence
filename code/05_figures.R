@@ -3,14 +3,14 @@
 ###############################################################################
 
 library('data.table')
-library('mgcv')
-library('colorspace')
+library('survey')
 library('dplyr')
 library('tidyr')
 library('fields')
-library('RColorBrewer')
 library('tidycensus')
 library('doParallel')
+library('colorspace')
+library('RColorBrewer')
 library('ggplot2')
 library('ggpubr')
 library('corrplot')
@@ -34,7 +34,7 @@ s = states_w[!is.na(seroprevalence), ]
 
 # Reference model (no adjustment for waning).
 m_ref_glm = readRDS('../output/main_glm.rds')
-m_ref_gam = readRDS('../output/main_gam.rds')
+m_ref_glm_splines = readRDS('../output/main_glm_splines.rds')
 
 # Models with cases adjusted for 3 different waning rates. 
 # This assumes that `seroprevalence_glm_3wanings.R` has been run, and that its
@@ -206,7 +206,7 @@ p3 = ggplot(subset(out_3w_glm, detects < 0 &
        y = NULL,
        fill = NULL) +
   scale_fill_continuous_diverging(palette = 'Blue-Red 3',
-                                  breaks = c(-1e3, 0, 1e3, 2e3)) +
+                                  breaks = c(-5e2, 0, 5e2, 1e3)) +
   theme_bw() +
   theme(legend.position = 'top', 
         legend.text = element_text(size = 7),
@@ -264,7 +264,6 @@ ggsave('../plots/figure2.pdf',
 
 
 
-
 ################################################################################
 # Fig 3: Example time series of seroprevalence and predicted incidence.
 ################################################################################
@@ -309,7 +308,6 @@ preds_glm_us = merge(preds_glm_us, preds_glm_cis_us, all.x = TRUE)
 preds_glm_all_ex = rbind(preds_glm_all_ex, preds_glm_us)
 preds_glm_all_ex$state = factor(preds_glm_all_ex$state, 
                                 levels = c(ex_states, 'US-wide'))
-
 
 
 
@@ -829,6 +827,7 @@ dev.off()
 
 
 
+
 ###############################################################################
 # SI Fig S3: Map of assays used.
 ###############################################################################
@@ -864,6 +863,7 @@ pl = ggplot(map, aes(fill = assay_cat)) +
         plot.title = element_text(hjust = 0.5))
 
 ggsave('../plots/figures3.pdf', width = 8.5, height = 6.5)
+
 
 
 
@@ -1121,6 +1121,7 @@ PlotMapAndTs(data_map = s_glm, data_ts = s_all_glm)
 
 
 
+
 ################################################################################
 # Fig S8: Complete version of model metrics tile plots.
 ################################################################################
@@ -1220,6 +1221,7 @@ ggsave('../plots/figures8.pdf', width = 8, height = 5, unit = 'in')
               
 
 
+
 ###############################################################################
 # SI Fig S9. Estimated proportion infected, vaccination coverage, per state.
 ###############################################################################
@@ -1261,6 +1263,7 @@ ggsave('../plots/figures9.pdf', width = 8, height = 12, unit = 'in')
 
 
 
+
 ################################################################################
 # SI Fig S10. Variation in seroprevalences and incidences across the US, per round.
 ################################################################################
@@ -1268,9 +1271,9 @@ ggsave('../plots/figures9.pdf', width = 8, height = 12, unit = 'in')
 #' Calculate and plot variation for seroprevalences and predicted incidences
 #' across the US, per round.
 #'
-#' @description The coefficients of variation should indicate the spatial
-#' heterogeneity in seroprevalences and incidences across the US for each point
-#' in time.
+#' @description We use a robust estimate of the coefficient of variation (IQR /
+#' median), and that statistic should indicate the spatial heterogeneity in
+#' seroprevalences and incidences across the US for each point in time.
 #'
 #' @param preds :data.table: augmented data.table with predicted values (output
 #' from GetPredictions above).
@@ -1287,8 +1290,8 @@ PlotVars = function(preds, ex)
   # COV for seroprevalence without vaccination.
   cov_med_s  = preds[, .(par = 'No vacc.', 
                          week = mean(week),
-                         cov_med = sd(seroprevalence / 100) / 
-                           mean(seroprevalence / 100),
+                         cov_med = IQR(seroprevalence / 100) / 
+                           median(seroprevalence / 100),
                          cov_med_neg = NA), 
                      by = 'survey_round']
 
@@ -1296,8 +1299,8 @@ PlotVars = function(preds, ex)
   # correlation, and negative correlation).
   cov_med_sv = preds[, .(par = 'With vacc.', 
                          week = mean(week),
-                         cov_med = sd(seroprev_v) / mean(seroprev_v),
-                         cov_med_neg = sd(seroprev_v_neg) / mean(seroprev_v_neg)), 
+                         cov_med = IQR(seroprev_v) / median(seroprev_v),
+                         cov_med_neg = IQR(seroprev_v_neg) / median(seroprev_v_neg)), 
                      by = 'survey_round']
 
   cov_med_s = rbind(cov_med_s, cov_med_sv)
@@ -1306,16 +1309,15 @@ PlotVars = function(preds, ex)
   # COV for estimated proportion infected without vaccination.
   cov_med_s_ex  = preds[, .(par = 'No vacc.', 
                             week = mean(week),
-                            cov_med = sd(pred_incidence) / mean(pred_incidence),
+                            cov_med = IQR(pred_incidence) / median(pred_incidence),
                             cov_med_neg = NA), 
                         by = c('survey_round')]
 
   # COV for EPIV (with both no assumed correlation, and negative correlation).
   cov_med_sv_ex = preds[, .(par = 'With vacc.', 
                             week = mean(week),
-                            cov_med = sd(pred_epiv) / mean(pred_epiv),
-                            cov_med_neg = sd(pred_epiv_neg) /
-                              mean(pred_epiv_neg)), 
+                            cov_med = IQR(pred_epiv) / median(pred_epiv),
+                            cov_med_neg = IQR(pred_epiv_neg) / median(pred_epiv_neg)), 
                         by = c('survey_round')]
 
   cov_med_s_ex = rbind(cov_med_s_ex, cov_med_sv_ex)
@@ -1339,7 +1341,7 @@ PlotVars = function(preds, ex)
                                                                linetype = c(1, 2)))) +
     labs(colour = '') +
     scale_x_date(date_breaks = '6 months', date_labels = '%b %Y') +
-    xlab(NULL) + ylab('Coefficient of variation') +
+    xlab(NULL) + ylab('IQR / median') +
     theme_bw() +
     theme(strip.background = element_blank(),
           panel.spacing = unit(1, 'lines')) +
@@ -1348,6 +1350,7 @@ PlotVars = function(preds, ex)
 
 pl_cov_meds = PlotVars(preds = preds_glm, ex = best)
 ggsave('../plots/figures10.pdf', width = 6, height = 2.5, unit = 'in')
+
 
 
 
@@ -1404,6 +1407,7 @@ ggsave('../plots/figures11.pdf', width = 7, height = 3.2, unit = 'in')
 
 
 
+
 ################################################################################
 # SI Fig S12 (version of Fig 5 but looking at anti-N seroprevalence in the blood
 # donors data). 
@@ -1444,6 +1448,7 @@ pl = annotate_figure(pl,
                      bottom = text_grob('Seroprevalence (no vaccinations) from the blood donors dataset'))
 
 ggsave('../plots/figures12.pdf', width = 6, height = 3.2)
+
 
 
 
@@ -1502,6 +1507,7 @@ ggsave('../plots/figures13.pdf', width = 8, height = 12)
 
 
 
+
 ###############################################################################
 # SI Fig S14: Correlation matrices.
 ###############################################################################
@@ -1541,6 +1547,7 @@ corrplot(cors, p.mat = cors_test$p,
          type = "lower", method = "number", order = 'original',
          tl.pos = 'n', diag = FALSE, cl.pos = 'n', insig = 'blank', add = TRUE)
 dev.off()
+
 
 
 
@@ -1658,115 +1665,25 @@ dev.off()
 
 
 
-################################################################################
-# SI Fig S16: GAM functions.
-################################################################################
-
-#' Get the GAM functions for each variable from a model fit.
-#'
-#' @param m :GAM object: fit GAM model.
-#' @param p :character: variable to extract.
-#'
-#' @return a matrix with four columns: x values, estimate, and lower and upper
-#' bounds.
-
-GetGamFuns = function(m, p)
-{
-  n = strsplit(as.character(m$formula)[3], '\\+')[[1]]
-  n = n[setdiff(seq_along(n), grep('state', n))]
-  n = n[setdiff(seq_along(n), grep('s\\(', n, invert = TRUE))]
-  g = grep(p, n)[1]
-
-  if (!is.na(g))
-  {
-    z = plot(m, select = 1, ylab = '', se = TRUE)
-    x = cbind(z[[g]]$x, z[[g]]$fit, 
-              z[[g]]$fit - z[[g]]$se, z[[g]]$fit + z[[g]]$se)
-  } else
-  {
-    x = data.frame(NA, NA)
-  }
-
-  return(x)
-}
-
-
-
-#' Plot GAM functions extracted from GetGamFuns
-
-PlotGamFuns = function(x, p, lab, add = FALSE, cols = 'black')
-{
-  xr = range(x[, 1], na.rm = TRUE)
-  xr = range(xr[is.finite(xr)])
-
-  yr = c(-2, 1.5)
-
-  if (isFALSE(add))
-  {
-    plot(1, 1, type = 'n', xlim = xr, ylim = yr, xlab = lab, ylab = '')
-    abline(h = 0, lty = '24')
-  }
-
-  if (nrow(x) > 1)
-  {
-    polygon(x = c(x[, 1], rev(x[, 1])), y = c(x[, 3], rev(x[, 4])),
-            border = NA, col = adjustcolor(cols, alpha = 0.1))
-    lines(x[, 1], x[, 2], lwd = 1.5, col = cols)
-  }
-}
-
-vars = c('cases_cumulative_perc', 'deaths_cumulative_perc', 
-         'excess_deaths_difference_perc',
-         'hospitalisation_cumulative_perc', 'tests_total_cumulative_perc',
-         'vaccinated_cumulative_perc', 
-         'cases_00_19_perc', 'cases_20_49_perc', 'cases_50_69_perc',
-         'Abbott_Architect_perc')
-
-labs = c('sqrt(% cases)', 'sqrt(% deaths)', '% exc. deaths diff.', 
-         'sqrt(% hosp.)', 'ln(% tested)', '% vaccinated', 
-         '% 0-19', '% 20-49', '% 50-69', '% Abbott tests')
-
-ds = vector('list', length = length(vars))
-
-for (i in seq_along(vars))
-{
-  ds[[i]] = GetGamFuns(m = m_ref_gam, p = vars[i])
-}
-
-
-pdf(paste0('../plots/figures16.pdf'), width = 5, height = 2, 
-    pointsize = 6)
-par(mar = c(2.5, 2.0, 0.5, 0.8), mgp = c(1.3, 0.3, 0), tcl = 0.25)
-
-split.screen(c(2, 5))
-
-for (i in seq_along(vars))
-{
-  screen(i)
-
-  PlotGamFuns(x = ds[[i]], p = vars[i], lab = labs[i])
-}
-
-close.screen(all.screens = TRUE)
-dev.off()
-
-
 
 ################################################################################
-# SI Fig S17: compare predicted seroprevalences and incidences for GLM and GAM.
+# SI Fig S16: compare predicted seroprevalences and incidences for GLM without
+# and with splines.
 ################################################################################
 
-pdf('../plots/figures17.pdf', width = 1.7, height = 1.7, 
+pdf('../plots/figures16.pdf', width = 1.7, height = 1.7, 
     pointsize = 6)
 par(mar = c(2.5, 2.5, 0.5, 0.5), mgp = c(1.3, 0.3, 0), tcl = 0.25)
 
-r = cor(predict(m_ref_glm, type = 'response'), predict(m_ref_gam, type = 'response'))
+r = cor(x = as.numeric(predict(m_ref_glm, type = 'response')), 
+        y = as.numeric(predict(m_ref_gam, type = 'response')))
 
-plot(predict(m_ref_glm, type = 'response'), predict(m_ref_gam, type = 'response'), 
+plot(x = as.numeric(predict(m_ref_glm, type = 'response')), 
+     y = as.numeric(predict(m_ref_gam, type = 'response')), 
      pch = 16, 
      col = adjustcolor('black', alpha = 0.2), cex = 0.7,
-     xlab = 'Predicted seroprevalence (GLM)', 
-     ylab = 'Predicted seroprevalence (GAM)')
+     xlab = 'Predicted seroprevalence (no splines)', 
+     ylab = 'Predicted seroprevalence (with splines)')
 abline(0, 1, lty = '33')
 dev.off()
 
