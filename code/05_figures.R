@@ -80,7 +80,7 @@ abline(h = w_abb, col = adjustcolor('black', alpha = 0.07), lwd = 7)
 axis(side = 2, at = seq_along(ord), labels = s_sub$state[ord])
 axis(side = 4, at = seq_along(ord), labels = FALSE)
 axis(side = 3, labels = FALSE)
-mtext('A', side = 3, adj = -0.02, line = 0.1, cex = 1.4)
+mtext(expression(bold('a')), side = 3, adj = -0.02, line = 0.1, cex = 1.4)
 
 screen(2)
 plot(sero, seq_along(ord), type = 'o', pch = 16, yaxt = 'n', ylim = c(1.7, 48.3),
@@ -91,7 +91,7 @@ mgp.axis(side = 2, at = seq_along(ord), labels = s_sub$state[ord], hadj = 0.5,
          mgp = c(1.3, 1.3, 0))
 axis(side = 4, at = seq_along(ord), labels = FALSE)
 axis(side = 3, labels = FALSE)
-mtext('B', side = 3, adj = -0.02, line = 0.1, cex = 1.4)
+mtext(expression(bold('b')), side = 3, adj = -0.02, line = 0.1, cex = 1.4)
 
 screen(3)
 plot(death,seq_along(ord),  type = 'o', pch = 16, yaxt = 'n', ylim = c(1.7, 48.3),
@@ -100,7 +100,7 @@ mgp.axis(side = 2, at = seq_along(ord), labels = s_sub$state[ord], hadj = 0.5,
          mgp = c(1.3, 1.3, 0))
 axis(side = 4, at = seq_along(ord), labels = FALSE)
 axis(side = 3, labels = FALSE)
-mtext('C', side = 3, adj = -0.02, line = 0.1, cex = 1.4)
+mtext(expression(bold('c')), side = 3, adj = -0.02, line = 0.1, cex = 1.4)
 
 screen(4)
 plot(vacc, seq_along(ord), type = 'o', pch = 16, yaxt = 'n', ylim = c(1.7, 48.3),
@@ -109,7 +109,7 @@ mgp.axis(side = 2, at = seq_along(ord), labels = s_sub$state[ord], hadj = 0.5,
          mgp = c(1.3, 1.3, 0))
 axis(side = 4, at = seq_along(ord), labels = s_sub$state[ord])
 axis(side = 3, labels = FALSE)
-mtext('D', side = 3, adj = -0.02, line = 0.1, cex = 1.4)
+mtext(expression(bold('d')), side = 3, adj = -0.02, line = 0.1, cex = 1.4)
 
 close.screen(all.screens = TRUE)
 dev.off()
@@ -134,13 +134,17 @@ cols = brewer.pal(n = 3, name = 'Dark2')
 
 p1 = ggplot(diag_df, aes(x = x, y = y, colour = w)) + 
   geom_line(alpha = 0.5, size = 0.8) + 
-  labs(x = 'Weeks', y = 'Prob. seropos.') +
+  labs(x = 'Weeks', 
+       y = 'Prob. seropos.',
+       tag = 'a') +
   scale_y_continuous(limits = c(-0.1, 1.1), breaks = c(0, 0.5, 1)) +
   scale_colour_brewer(type = 'qual', palette = 'Dark2') +
   theme_bw() +
   theme(axis.title = element_text(size = 8),
         axis.text = element_text(size = 7),
-        legend.position = 'none')
+        legend.position = 'none',
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.margin = unit(c(-0.2, 0, 0.2, 0), 'cm'))
 
 # Compare three time series: cumulative cases (no waning), and cumulative cases,
 # adjusted for two different times to seroreversion, faster and slower.
@@ -172,7 +176,10 @@ df = data.frame(x = rep(seq_along(fl), 3),
 
 p2 = ggplot(df, aes(x = x, y = fl / 1e6, colour = w)) + 
   geom_line(size = 0.8, alpha = 0.5) +
-  labs(x = 'Week', y = 'Cases (millions)', colour = NULL) +
+  labs(x = 'Week', 
+       y = 'Cases (millions)', 
+       colour = NULL,
+       tag = 'b') +
   scale_colour_manual(values = c('black', cols[1:2])) +
   theme_bw() +
   theme(axis.title = element_text(size = 8),
@@ -183,7 +190,9 @@ p2 = ggplot(df, aes(x = x, y = fl / 1e6, colour = w)) +
         legend.key.height = unit(0.3, 'cm'),
         legend.justification = c(-0.4, 1),
         legend.margin = margin(-23, 0, 0, 0),
-        legend.text = element_text(margin = margin(r = -1.2, unit = 'cm'), size = 7))
+        legend.text = element_text(margin = margin(r = -1.2, unit = 'cm'), size = 7),
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.margin = unit(c(-0.2, 0, 0, 0), 'cm'))
 
 w_b_aic  = quantile(out_3w_glm$aic, prob = 0.05) - m_ref_glm$aic
 w_b_loov = quantile(out_3w_glm$rmse_loov, prob = 0.05) - m_ref_glm$rmse_loov
@@ -204,7 +213,8 @@ p3 = ggplot(subset(out_3w_glm, detects < 0 &
   coord_fixed() + 
   labs(x = NULL,
        y = NULL,
-       fill = NULL) +
+       fill = NULL,
+       tag = 'c') +
   scale_fill_continuous_diverging(palette = 'Blue-Red 3',
                                   breaks = c(-5e2, 0, 5e2, 1e3)) +
   theme_bw() +
@@ -214,6 +224,7 @@ p3 = ggplot(subset(out_3w_glm, detects < 0 &
         legend.key.height = unit(0.3, 'cm'),
         legend.margin = margin(0, 0, 0, 0),
         legend.box.margin = margin(-0, -10, -5, -10),
+        plot.tag = element_text(face = 'bold', size = 10),
         axis.title = element_text(size = 9),
         axis.text = element_text(size = 8))
     
@@ -234,7 +245,8 @@ p4 = ggplot(subset(out_3w_glm, detects < 0 &
   coord_fixed() + 
   labs(x = NULL, 
        y = NULL,
-       fill = NULL) +
+       fill = NULL,
+       tag = 'd') +
   scale_fill_continuous_diverging(palette = 'Blue-Red 3',
                                   breaks = c(-0.002, -0.001, 0, 0.001, 0.002, 0.003)) +
   theme_bw() +
@@ -244,6 +256,7 @@ p4 = ggplot(subset(out_3w_glm, detects < 0 &
         legend.key.height = unit(0.3, 'cm'),
         legend.margin = margin(0, 0, 0, 0),
         legend.box.margin = margin(-0, -10, -5, -10),
+        plot.tag = element_text(face = 'bold', size = 10),
         axis.title = element_text(size = 9),
         axis.text = element_text(size = 8))
 
@@ -309,6 +322,14 @@ preds_glm_all_ex = rbind(preds_glm_all_ex, preds_glm_us)
 preds_glm_all_ex$state = factor(preds_glm_all_ex$state, 
                                 levels = c(ex_states, 'US-wide'))
 
+# Label each facet.
+panel_labels = data.frame(state = c(levels(vacc_start$state), 'US-wide'))
+panel_labels$state = factor(panel_labels$state,
+                            levels = c(ex_states, 'US-wide'))
+panel_labels$label = letters[1:nrow(panel_labels)]
+panel_labels$week  = as.Date('2020-07-30')
+panel_labels$y     = 0.79
+
 
 
 p = ggplot(preds_glm_all_ex) +
@@ -330,9 +351,13 @@ p = ggplot(preds_glm_all_ex) +
             aes(x = week, y = pred_incidence, 
                 colour = 'Estimated proportion infected'), 
             size = 0.5, alpha = 0.6) + 
+  geom_text(data = panel_labels, aes(x = week, y = y, label = label),
+            fontface = 'bold',
+            size = 3.5) +
   scale_x_date(date_breaks = '6 months', date_labels = '%b %Y') +
   facet_wrap(~ state, ncol = 4) + 
-  labs(x = NULL, y = 'Seroprevalence and proportions infected') +
+  labs(x = NULL, 
+       y = 'Seroprevalence and proportions infected') +
   scale_colour_manual('', 
                       breaks = c('Seroprevalence surveys',
                                  'Fitted seroprevalence',
@@ -506,13 +531,13 @@ PlotIncidenceVacc = function(preds_all, r = 26, zl = 0.7)
           plot.margin = margin(0, 0.3, 0, 0, 'cm'))
 
   pl = ggarrange(ggarrange(pl1, pl2, nrow = 1, ncol = 2,
-                           font.label = list(size = 8, face = 'plain'),
+                           font.label = list(size = 8, face = 'bold'),
                            common.legend = FALSE, labels = c('A', 'B')), 
                  ggarrange(pl3, pl4, ncol = 2, 
-                           font.label = list(size = 8, face = 'plain'),
+                           font.label = list(size = 8, face = 'bold'),
                            common.legend = FALSE, labels = c('C', 'D')), 
                  ggarrange(pl6, pl7, ncol = 2,
-                           font.label = list(size = 8, face = 'plain'),
+                           font.label = list(size = 8, face = 'bold'),
                            common.legend = FALSE, widths = c(0.55, 0.45), 
                            labels = c('E', 'F')), 
                  nrow = 3, heights = c(0.35, 0.35, 0.3))
@@ -600,14 +625,17 @@ p1 = ggplot(plot_preds, aes(x = blood_prevalence, y = pred_epiv)) +
   geom_point(pch = 16, size = 0.6, alpha = 0.3, colour = b[2]) +
   geom_line(aes(x = blood_prevalence, y = pred_epiv_l), 
             colour = b[2], size = 1) + 
-  coord_fixed() + 
+  coord_fixed(clip = 'off') + 
   lims(x = c(0, 1), y = c(0, 1)) + 
   facet_wrap(~ lab) +
-  labs(x = NULL, y = NULL) +
+  labs(x = NULL, 
+       y = NULL,
+       tag = 'a') +
   theme_bw() +
   theme(strip.background = element_blank(),
         axis.text = element_text(size = 8),
-        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.tag.position = c(0.03, 0.94))
 
 # Top-right panel:
 # - No correlation between vaccination and incidence.
@@ -622,14 +650,17 @@ p2 = ggplot(plot_preds, aes(x = blood_prevalence, y = pred_epiv_d1)) +
   geom_point(pch = 16, size = 0.8, alpha = 0.3, colour = b[1]) +
   geom_line(aes(x = blood_prevalence, y = pred_epiv_d1_l), 
             colour = b[1], size = 1) + 
-  coord_fixed() + 
+  coord_fixed(clip = 'off') + 
   lims(x = c(0, 1), y = c(0, 1)) + 
   facet_wrap(~ lab) +
-  labs(x = NULL, y = NULL) +
+  labs(x = NULL, 
+       y = NULL,
+       tag = 'b') +
   theme_bw() +
   theme(strip.background = element_blank(),
         axis.text = element_text(size = 8),
-        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.tag.position = c(0.03, 0.94))
 
 # Bottom-left panel:
 # - Negative correlation between vaccination and incidence.
@@ -644,14 +675,17 @@ p3 = ggplot(plot_preds, aes(x = blood_prevalence, y = pred_epiv_d1_neg)) +
   geom_point(pch = 16, size = 0.8, alpha = 0.3, colour = b[3]) +
   geom_line(aes(x = blood_prevalence, y = pred_epiv_d1_neg_l), 
             colour = b[3], size = 1) + 
-  coord_fixed() + 
+  coord_fixed(clip = 'off') + 
   lims(x = c(0, 1), y = c(0, 1)) + 
   facet_wrap(~ lab) +
-  labs(x = NULL, y = NULL) +
+  labs(x = NULL, 
+       y = NULL,
+       tag = 'c') +
   theme_bw() +
   theme(strip.background = element_blank(),
         axis.text = element_text(size = 8),
-        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.tag.position = c(0.03, 0.94))
 
 # Bottom-right panel:
 # Compare LOESS curves for the other three panels.
@@ -664,14 +698,17 @@ p4 = ggplot(plot_preds, aes(x = blood_prevalence, y = pred_epiv_l)) +
             colour = b[1], size = 1) + 
   geom_line(aes(x = blood_prevalence, y = pred_epiv_d1_neg_l), 
             colour = b[3], size = 1) + 
-  coord_fixed() + 
+  coord_fixed(clip = 'off') + 
   lims(x = c(0, 1), y = c(0, 1)) + 
   facet_wrap(~ lab) +
-  labs(x = NULL, y = NULL) +
+  labs(x = NULL, 
+       y = NULL,
+       tag = 'd') +
   theme_bw() +
   theme(strip.background = element_blank(),
         axis.text = element_text(size = 8),
-        plot.margin = unit(c(0, 0, 0, 0), 'cm'))
+        plot.tag = element_text(face = 'bold', size = 10),
+        plot.tag.position = c(0.03, 0.94))
 
 pl = ggarrange(p1, p2, p3, p4, nrow = 2, ncol = 2, 
                font.label = list(face = 'plain'),
@@ -682,7 +719,7 @@ pl = annotate_figure(pl,
                      left = text_grob('Estimated proportion infected and/or vaccinated', 
                                       rot = 90, size = 9))
 
-ggsave('../plots/figure5.pdf', width = 11.4, height = 11.4, units = 'cm')
+ggsave('../plots/figure5.pdf', width = 12.5, height = 12.5, units = 'cm')
 
 
 
